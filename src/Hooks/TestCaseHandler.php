@@ -6,6 +6,7 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Error;
 use PhpParser\Comment\Doc;
+use PhpParser\Node\Arg;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
@@ -557,42 +558,57 @@ final class TestCaseHandler implements
     }
 
     /**
-     * @template T of object
-     * @param class-string<T> $attributeClass
-     * @return array<int, string>|null
+     * The string-literal arguments of every attribute of the given class on the method, or null
+     * when the method carries no such attribute.
+     *
+     * @param class-string $attributeClass
+     * @return list<string>|null
      */
     private static function attributeValue(ClassMethod $method, Aliases $aliases, string $attributeClass): array|null
     {
-        $onlyStringLiteralExpressions = static fn (Attribute $attribute): array => array_map(
-            static fn(String_ $string): string => $string->value,
-            array_filter(
-                array_column($attribute->args, 'value'),
-                // For our purposes, we only care about string literals: everything else is currently out of scope.
-                // If you need more complex expressions supported, add a constant expression evaluator here.
-                static fn(Expr $expression): bool => $expression instanceof String_,
-            ),
-        );
-        $attributesInGroupMatchingRequestedAttributeName = static fn(AttributeGroup $group): array => array_filter(
-            $group->attrs,
-            static fn(Attribute $attribute): bool => $attributeClass === Type::getFQCLNFromString(
+        $matchingAttributes = [];
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
                 // toCodeString() keeps the leading backslash toString() strips, so fully-qualified attributes resolve.
-                $attribute->name->toCodeString(),
-                $aliases,
-            ),
-        );
-        $matchingAttributes = array_merge(...array_values(array_map(
-            $attributesInGroupMatchingRequestedAttributeName,
-            $method->getAttrGroups(),
-        )));
+                if ($attributeClass === Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases)) {
+                    $matchingAttributes[] = $attribute;
+                }
+            }
+        }
 
         if ($matchingAttributes === []) {
             return null;
         }
 
-        return array_merge(...array_values(array_map(
-            $onlyStringLiteralExpressions,
-            $matchingAttributes,
-        )));
+        $values = [];
+
+        foreach ($matchingAttributes as $attribute) {
+            foreach (self::stringLiteralArguments($attribute) as $value) {
+                $values[] = $value;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * For our purposes, we only care about string literals: everything else is currently out of scope.
+     * If you need more complex expressions supported, add a constant expression evaluator here.
+     *
+     * @return list<string>
+     */
+    private static function stringLiteralArguments(Attribute $attribute): array
+    {
+        $values = [];
+
+        foreach ($attribute->args as $arg) {
+            if ($arg instanceof Arg && $arg->value instanceof String_) {
+                $values[] = $arg->value->value;
+            }
+        }
+
+        return $values;
     }
 
     /** @return array<string, array<int,string>> */
