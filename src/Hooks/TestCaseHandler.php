@@ -8,8 +8,6 @@ use Error;
 use PhpParser\Comment\Doc;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Attribute;
-use PhpParser\Node\AttributeGroup;
-use PhpParser\Node\Expr;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -35,7 +33,6 @@ use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Union;
 use RuntimeException;
 
-use function array_column;
 use function array_filter;
 use function array_map;
 use function array_merge;
