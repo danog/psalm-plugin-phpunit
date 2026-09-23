@@ -20,6 +20,7 @@ use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\Internal\Interner;
+use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
@@ -143,7 +144,7 @@ final class TestCaseHandler implements
 
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId(
-                $class_storage->name . '::' . $declaring_method_id->method_name,
+                new MethodIdentifier($class_storage->name, $declaring_method_id->method_name),
             );
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
             [$declaring_method_class, $declaring_method_name] = explode('::', (string)$declaring_method_id);
@@ -174,7 +175,7 @@ final class TestCaseHandler implements
             }
 
             $codebase->methodExists(
-                (string) $declaring_method_id,
+                $declaring_method_id,
                 'PHPUnit\Framework\TestSuite::run'
             );
 
@@ -216,7 +217,9 @@ final class TestCaseHandler implements
                 $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
                 assert($apparent_provider_method_name !== null);
 
-                $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
+                $provider_method_id = $codebase->getDeclaringMethodId(
+                    MethodIdentifier::fromMethodIdReference($apparent_provider_method_name),
+                );
 
                 if (null === $provider_method_id) {
                     IssueBuffer::accepts(new Issue\UndefinedMethod(
