@@ -168,7 +168,7 @@ final class TestCaseHandler implements
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
 
-            $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
+            $is_test = 0 === strpos($declaring_method_id->method_name, 'test') || isset($specials['test']);
             if (!$is_test) {
                 continue; // skip non-test methods
             }
