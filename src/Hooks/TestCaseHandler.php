@@ -19,6 +19,7 @@ use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\Interner;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
