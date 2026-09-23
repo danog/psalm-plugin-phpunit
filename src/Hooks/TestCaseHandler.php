@@ -475,7 +475,7 @@ final class TestCaseHandler implements
      */
     private static function getAtomics(Type\Union $union): array
     {
-        return $union->getAtomicTypes();
+        return $union->getAtomicTypesByKey();
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
