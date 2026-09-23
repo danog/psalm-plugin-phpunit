@@ -140,8 +140,10 @@ final class TestCaseHandler implements
             return null;
         }
 
-        foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
-            $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
+        foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
+            $method_name    = $codebase->getCasedMethodId(
+                $class_storage->name . '::' . $declaring_method_id->method_name,
+            );
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
             [$declaring_method_class, $declaring_method_name] = explode('::', (string)$declaring_method_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
@@ -523,12 +525,12 @@ final class TestCaseHandler implements
 
     private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
     {
-        if (isset($storage->methods['setup'])) {
+        if (isset($storage->methods[Interner::intern('setup')])) {
             return true;
         }
 
-        foreach ($storage->methods as $method => $_) {
-            $stmt_method = $stmt->getMethod($method);
+        foreach ($storage->methods as $method_id => $_) {
+            $stmt_method = $stmt->getMethod(Interner::lookup($method_id));
             if (!$stmt_method) {
                 continue;
             }
