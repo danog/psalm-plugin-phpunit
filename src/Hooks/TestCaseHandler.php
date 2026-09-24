@@ -50,13 +50,14 @@ final class TestCaseHandler implements
     {
         $codebase = $event->getCodebase();
 
-        foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
+        $test_case = Interner::intern('PHPUnit\Framework\TestCase');
+        foreach ($codebase->classlike_storage_provider->getAll() as $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-            if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
+            if ($codebase->classExtends($storage->id, $test_case) && ($meta['hasInitializers'] ?? false)) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
 
-                foreach (self::getDescendants($codebase, $name) as $dependent_name) {
-                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
+                foreach (self::getDescendants($codebase, $storage->id) as $dependent_id) {
+                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_id);
                     $dependent_storage->suppressed_issues[] = 'MissingConstructor';
                 }
             }
@@ -64,23 +65,25 @@ final class TestCaseHandler implements
     }
 
     /**
-     * @return string[]
+     * @return list<int> the interned names of the classes extending $name
      *
      * @psalm-mutation-free
      */
-    private static function getDescendants(Codebase $codebase, string $name): array
+    private static function getDescendants(Codebase $codebase, int $name): array
     {
-        if (!$codebase->classlike_storage_provider->has($name)) {
+        $storage = $codebase->classlike_storage_provider->find($name);
+        if ($storage === null) {
             return [];
         }
 
-        $storage = $codebase->classlike_storage_provider->get($name);
         $ret = [];
 
         foreach ($storage->dependent_classlikes as $dependent => $_) {
-            if ($codebase->classExtends($dependent, $name)) {
-                $ret[] = $dependent;
-                $ret = array_merge($ret, self::getDescendants($codebase, $dependent));
+            /** @psalm-suppress ImpureMethodCall the interner only grows */
+            $dependent_id = Interner::intern((string) $dependent);
+            if ($codebase->classExtends($dependent_id, $storage->id)) {
+                $ret[] = $dependent_id;
+                $ret = array_merge($ret, self::getDescendants($codebase, $dependent_id));
             }
         }
         return $ret;
@@ -127,7 +130,7 @@ final class TestCaseHandler implements
         $statements_source = $event->getStatementsSource();
         $aliases           = $statements_source->getAliases();
 
-        if (!$codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase')) {
+        if (!$codebase->classExtends($class_storage->id, Interner::intern('PHPUnit\Framework\TestCase'))) {
             return null;
         }
 
@@ -138,7 +141,7 @@ final class TestCaseHandler implements
         //
         // Marking class as used is required to get more detailed dead-code analysis (like unused
         // methods). If we instead just suppress UnusedClass, unused methods are not analyzed.
-        if (!$codebase->classOrInterfaceExists($class_storage->name, $class_storage->location)) {
+        if (!$codebase->classOrInterfaceExists($class_storage->id, $class_storage->location)) {
             return null;
         }
 
@@ -147,8 +150,8 @@ final class TestCaseHandler implements
                 new MethodIdentifier($class_storage->name, $declaring_method_id->method_name),
             );
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            [$declaring_method_class, $declaring_method_name] = explode('::', (string)$declaring_method_id);
-            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
+            $declaring_method_name = $declaring_method_id->method_name;
+            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_id->class_id);
 
             $declaring_class_node = $class_node;
             if ($declaring_class_storage->is_trait) {
@@ -201,7 +204,7 @@ final class TestCaseHandler implements
                     [$class_name, $method_id] = explode('::', $provider);
                     $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
 
-                    if (!$codebase->classOrInterfaceExists($fq_class_name, $provider_docblock_location)) {
+                    if (!$codebase->classOrInterfaceExists(Interner::intern($fq_class_name), $provider_docblock_location)) {
                         IssueBuffer::accepts(new Issue\UndefinedClass(
                             'Class ' . $fq_class_name . ' does not exist',
                             $provider_docblock_location,
