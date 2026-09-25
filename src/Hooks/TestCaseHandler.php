@@ -147,15 +147,15 @@ final class TestCaseHandler implements
 
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId(
-                new MethodIdentifier($class_storage->name, $declaring_method_id->method_name),
+                new MethodIdentifier($class_storage->id, $declaring_method_id->name_id),
             );
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            $declaring_method_name = $declaring_method_id->method_name;
+            $declaring_method_name = Interner::lookupLc($declaring_method_id->name_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_id->class_id);
 
             $declaring_class_node = $class_node;
             if ($declaring_class_storage->is_trait) {
-                $declaring_class_node = $codebase->classlikes->getTraitNode($declaring_class_storage->name);
+                $declaring_class_node = $codebase->classlikes->getTraitNode(Interner::lookup($declaring_class_storage->id));
             }
 
             if (!$method_storage->location) {
@@ -172,7 +172,7 @@ final class TestCaseHandler implements
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
 
-            $is_test = 0 === strpos($declaring_method_id->method_name, 'test') || isset($specials['test']);
+            $is_test = 0 === strpos(Interner::lookupLc($declaring_method_id->name_id), 'test') || isset($specials['test']);
             if (!$is_test) {
                 continue; // skip non-test methods
             }
@@ -214,7 +214,7 @@ final class TestCaseHandler implements
                     }
                     $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
                 } else {
-                    $apparent_provider_method_name = $class_storage->name . '::' . $provider;
+                    $apparent_provider_method_name = Interner::lookup($class_storage->id) . '::' . $provider;
                 }
 
                 $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
