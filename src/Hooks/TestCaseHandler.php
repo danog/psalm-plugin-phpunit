@@ -9,7 +9,6 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -94,15 +93,20 @@ final class TestCaseHandler implements
         $codebase          = $event->getCodebase();
         $aliases           = $statements_source->getAliases();
 
-        if (self::hasInitializers($class_storage, $class_node, $aliases)) {
+        // every class is visited: parse each method's specials once, for both questions below
+        $methods_specials = [];
+        foreach ($class_node->getMethods() as $method) {
+            $methods_specials[] = [$method, self::getSpecials($method, $aliases)];
+        }
+
+        if (self::hasInitializers($class_storage, $methods_specials)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
 
         $file_path    = $statements_source->getFilePath();
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
-        foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method, $aliases);
+        foreach ($methods_specials as [$method, $specials]) {
             if (!isset($specials['dataProvider'])) {
                 continue;
             }
@@ -526,27 +530,22 @@ final class TestCaseHandler implements
     }
 
 
-    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
+    /**
+     * @param list<array{ClassMethod, array<string, array<int,string>>}> $methods_specials
+     */
+    private static function hasInitializers(ClassLikeStorage $storage, array $methods_specials): bool
     {
         if (isset($storage->methods['setup'])) {
             return true;
         }
 
-        foreach ($storage->methods as $method => $_) {
-            $stmt_method = $stmt->getMethod($method);
-            if (!$stmt_method) {
-                continue;
-            }
-            if (self::isBeforeInitializer($stmt_method, $aliases)) {
+        // the class's own methods with a `before` special (one pass over the methods, not a lookup per method)
+        foreach ($methods_specials as [$method, $specials]) {
+            if (isset($specials['before']) && isset($storage->methods[strtolower($method->name->toString())])) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
-    {
-        return isset(self::getSpecials($method, $aliases)['before']);
     }
 
     /** @return array<string, array<int,string>> */
