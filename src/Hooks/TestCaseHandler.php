@@ -55,7 +55,7 @@ final class TestCaseHandler implements
                 $storage->suppressed_issues[] = 'MissingConstructor';
 
                 foreach (self::getDescendants($codebase, $name) as $dependent_name) {
-                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
+                    $dependent_storage = ($codebase->classlike_storage_provider->getOrNull($dependent_name) ?? throw \Psalm\Internal\Provider\ClassLikeStorageProvider::missing($dependent_name));
                     $dependent_storage->suppressed_issues[] = 'MissingConstructor';
                 }
             }
@@ -73,7 +73,7 @@ final class TestCaseHandler implements
             return [];
         }
 
-        $storage = $codebase->classlike_storage_provider->get($name);
+        $storage = ($codebase->classlike_storage_provider->getOrNull($name) ?? throw \Psalm\Internal\Provider\ClassLikeStorageProvider::missing($name));
         $ret = [];
 
         foreach ($storage->dependent_classlikes as $dependent => $_) {
@@ -145,9 +145,9 @@ final class TestCaseHandler implements
             $method_name    = $codebase->getCasedMethodId(
                 new MethodIdentifier($class_storage->name, $declaring_method_id->method_name),
             );
-            $method_storage = $codebase->methods->getStorage($declaring_method_id);
+            $method_storage = ($codebase->methods->getStorageOrNull($declaring_method_id) ?? throw $codebase->methods->missing($declaring_method_id));
             [$declaring_method_class, $declaring_method_name] = explode('::', (string)$declaring_method_id);
-            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
+            $declaring_class_storage = ($codebase->classlike_storage_provider->getOrNull($declaring_method_class) ?? throw \Psalm\Internal\Provider\ClassLikeStorageProvider::missing($declaring_method_class));
 
             $declaring_class_node = $class_node;
             if ($declaring_class_storage->is_trait) {
